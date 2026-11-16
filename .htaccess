@@ -1,0 +1,94 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Hotel Agua Beach · reglas del servidor (Hostinger / LiteSpeed, compatible Apache)
+# Sustituye al .htaccess de WordPress el día del lanzamiento. Vercel lo ignora.
+# ─────────────────────────────────────────────────────────────────────────────
+Options -Indexes
+DirectoryIndex index.html
+ErrorDocument 404 /404.html
+AddDefaultCharset utf-8
+
+<IfModule mod_rewrite.c>
+RewriteEngine On
+
+# https y sin www
+RewriteCond %{HTTPS} !=on [OR]
+RewriteCond %{HTTP_HOST} ^www\. [NC]
+RewriteRule ^(.*)$ https://hotel-aguabeach.com/$1 [R=301,L,NE]
+
+# Ficheros con huella del build (/assets/): marca para la caché de un año
+RewriteRule ^assets/ - [E=AB_IMMUTABLE:1]
+
+# Copia del WordPress retirado: nunca accesible desde fuera
+RewriteRule ^_wp-backup(/|$) - [R=404,L]
+
+# Enlaces cortos de WordPress (?p=123, ?page_id=5) → portada en inglés, sin parámetros
+RewriteCond %{QUERY_STRING} (^|&)(p|page_id)=\d+ [NC]
+RewriteRule ^$ /en/? [R=301,L]
+
+# Portada: idioma del navegador (Google, sin cabecera, recibe inglés = x-default)
+RewriteCond %{HTTP:Accept-Language} ^de [NC]
+RewriteRule ^$ /de/ [R=302,L]
+RewriteCond %{HTTP:Accept-Language} ^(es|ca|gl|eu) [NC]
+RewriteRule ^$ /es/ [R=302,L]
+RewriteRule ^$ /en/ [R=302,L]
+
+# ── Direcciones de la web anterior (WordPress) → nuevas, 301 ───────────────
+# Páginas sin prefijo de idioma
+RewriteRule ^habitaciones/?$ /es/habitaciones/ [R=301,L]
+RewriteRule ^servicios/?$ /es/servicios/ [R=301,L]
+RewriteRule ^instalaciones/?$ /es/servicios/ [R=301,L]
+RewriteRule ^gastronomia/?$ /es/gastronomia/ [R=301,L]
+RewriteRule ^shop/?$ /es/ [R=301,L]
+# Español
+RewriteRule ^es/accommodations/?$ /es/habitaciones/ [R=301,L]
+RewriteRule ^es/mapa/?$ /es/palmanova/ [R=301,L]
+RewriteRule ^es/que-hacer-en-mallorc/?$ /es/palmanova/ [R=301,L]
+RewriteRule ^es/(category|tag)/.*$ /es/blog/ [R=301,L]
+# Artículo en inglés que el WordPress tenía en el blog español → su versión inglesa
+RewriteRule ^es/where-to-stay-in-mallorca-for-a-quiet-holiday-2026-guide/?$ /en/where-to-stay-in-mallorca-for-a-quiet-holiday-2026-guide-2/ [R=301,L]
+# Inglés
+RewriteRule ^en/location/?$ /en/palmanova/ [R=301,L]
+RewriteRule ^en/majorca-lifestyle/?$ /en/palmanova/ [R=301,L]
+RewriteRule ^en/rooms-2/?$ /en/rooms/ [R=301,L]
+RewriteRule ^en/privacy-policy-2/?$ /en/privacy-policy/ [R=301,L]
+RewriteRule ^en/(category|tag)/.*$ /en/blog/ [R=301,L]
+# Alemán
+RewriteRule ^de/(category|tag)/.*$ /de/blog/ [R=301,L]
+# Sitemaps y feeds antiguos
+RewriteRule ^(sitemaps|sitemap|library-map|page-sitemap1|post-sitemap1|product-sitemap1|category-sitemap1|post_tag-sitemap1)\.xml$ /sitemap-index.xml [R=301,L]
+RewriteRule ^(es/|en/|de/)?feed/?$ /es/blog/ [R=301,L]
+RewriteRule ^comments/feed/?$ /es/blog/ [R=301,L]
+# Rutas internas de WordPress que ya no existen
+RewriteRule ^(wp-admin|wp-login\.php|xmlrpc\.php|wp-json|wp-includes)(/.*)?$ - [G,L]
+
+# Direcciones sin barra final → con barra (las páginas son carpetas)
+RewriteCond %{REQUEST_FILENAME} !-f
+RewriteCond %{REQUEST_URI} !\.[a-z0-9]{2,5}$ [NC]
+RewriteCond %{REQUEST_URI} !/$
+RewriteRule ^(.*)$ /$1/ [R=301,L]
+</IfModule>
+
+# ── Caché ─────────────────────────────────────────────────────────────────
+<IfModule mod_headers.c>
+  # Imágenes, fuentes, estilos y scripts: una semana; los de /assets/ (con huella) un año
+  <FilesMatch "\.(avif|webp|jpg|jpeg|png|svg|woff2|woff|css|js)$">
+    Header set Cache-Control "public, max-age=604800" env=!AB_IMMUTABLE
+    Header set Cache-Control "public, max-age=31536000, immutable" env=AB_IMMUTABLE
+  </FilesMatch>
+  # Vídeo y fotos sin huella (public/img)
+  <FilesMatch "\.(mp4|webm)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+  # Páginas: siempre la última versión
+  <FilesMatch "\.(html|xml|txt|json)$">
+    Header set Cache-Control "public, max-age=0, must-revalidate"
+  </FilesMatch>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set Referrer-Policy "strict-origin-when-cross-origin"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Permissions-Policy "camera=(), microphone=(), geolocation=()"
+  Header always set Strict-Transport-Security "max-age=31536000"
+</IfModule>
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css application/javascript application/json image/svg+xml text/xml application/xml text/plain
+</IfModule>
